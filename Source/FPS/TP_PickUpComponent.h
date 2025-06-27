@@ -23,6 +23,9 @@ public:
 	FOnPickUp OnPickUp;
 
 	UTP_PickUpComponent();
+
+	void OnPickUpByCharacter(AFPSCharacter* Character);
+
 protected:
 
 	/** Called when the game starts */

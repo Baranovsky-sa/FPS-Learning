@@ -17,6 +17,8 @@
 #include "TP_WeaponComponent.h"
 #include "EngineUtils.h"
 #include "Serialization/ObjectAndNameAsStringProxyArchive.h"
+#include "TableRows/WeaponRow.h"
+#include "TP_PickUpComponent.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
@@ -44,6 +46,33 @@ AFPSCharacter::AFPSCharacter()
 	Mesh1P->SetRelativeLocation(FVector(-30.f, 0.f, -150.f));
 
 	HealthComponent = CreateDefaultSubobject<UTP_HealthComponent>(TEXT("HealthComponent"));
+
+}
+
+void AFPSCharacter::EquipLoadout(FName LoadoutName)
+{
+	const FString Context = TEXT("Loadout Lookup");
+
+	if (WeaponTable == nullptr || LoadoutTable == nullptr)
+		return;
+	
+	const FLoadoutRow* Loadout = LoadoutTable->FindRow<FLoadoutRow>(LoadoutName, Context);
+
+	if (!Loadout) return;
+
+	const FWeaponRow* primaryWeapon = WeaponTable->FindRow<FWeaponRow>(Loadout->PrimaryWeaponRow, Context);
+
+	if (!primaryWeapon) return;
+
+	AActor* SpawnedPrimary = GetWorld()->SpawnActor<AActor>(primaryWeapon->WeaponClass);
+
+	UTP_PickUpComponent* PickupComponent = SpawnedPrimary->GetComponentByClass<UTP_PickUpComponent>();
+	if (PickupComponent)
+	{
+		PickupComponent->OnPickUpByCharacter(this);
+	}
+
+	AmmoCount = Loadout->StartingAmmo;
 
 }
 
@@ -103,15 +132,6 @@ void AFPSCharacter::SaveGame()
 {
 	UMySaveGame* SaveGameInstance = Cast<UMySaveGame>(UGameplayStatics::CreateSaveGameObject(UMySaveGame::StaticClass()));
 
-	//SaveGameInstance->PlayerLocation = GetActorLocation();
-	//SaveGameInstance->PlayerRotation = GetActorRotation();
-	//SaveGameInstance->PlayerAmmo = AmmoCount;
-	//UTP_HealthComponent* healthCmp = GetComponentByClass<UTP_HealthComponent>();
-	//if (healthCmp)
-	//	SaveGameInstance->PlayerHealth = healthCmp->Health;
-
-	//SaveGameInstance->WeaponAttached = GetInstanceComponents().FindItemByClass<UTP_WeaponComponent>() ? true : false;
-
 	for (AActor* Actor : TActorRange<AActor>(GetWorld()))
 	{
 		FActorSaveData Data;
@@ -160,27 +180,6 @@ void AFPSCharacter::LoadGame()
 		Actor->Serialize(Ar);
 		Actor->SetActorTransform(data.Transform);
 	}
-	//SetActorLocation(SaveGameInstance->PlayerLocation);
-	//SetActorRotation(SaveGameInstance->PlayerRotation);
-
-	//AmmoCount = SaveGameInstance->PlayerAmmo;
-
-	//UTP_HealthComponent* healthCmp = GetComponentByClass<UTP_HealthComponent>();
-	//if (healthCmp)
-	// healthCmp->Health = SaveGameInstance->PlayerHealth;
-
-	//if(SaveGameInstance->WeaponAttached)
-	//{ 
-	//	TArray<AActor*> Actors;
-	//	UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("Weapon"), Actors);
-
-	//	if (!Actors.IsEmpty())
-	//	{
-	//		UTP_WeaponComponent* WeaponComponent = Actors[0]->GetComponentByClass<UTP_WeaponComponent>();
-	//		if (WeaponComponent)
-	//			WeaponComponent->AttachWeapon(this);
-	//	}
-	//}
 }
 
 void AFPSCharacter::Move(const FInputActionValue& Value)

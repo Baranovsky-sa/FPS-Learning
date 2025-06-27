@@ -80,6 +80,9 @@ public:
 	/** Returns FirstPersonCameraComponent subobject **/
 	UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
 
+	UFUNCTION(BlueprintCallable, Category = "Loadout")
+	void EquipLoadout(FName LoadoutName);
+
 	UFUNCTION(BlueprintCallable)
 	int GetAmmoCount() { return AmmoCount;}
 
@@ -88,6 +91,13 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components", SaveGame)
 	UTP_HealthComponent* HealthComponent;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UDataTable* WeaponTable;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UDataTable* LoadoutTable;
+
 private:
 	int bIsNoclipEnabled = false;
 

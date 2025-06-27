@@ -8,6 +8,15 @@ UTP_PickUpComponent::UTP_PickUpComponent()
 	SphereRadius = 32.f;
 }
 
+void UTP_PickUpComponent::OnPickUpByCharacter(AFPSCharacter* Character)
+{
+	if (Character != nullptr)
+	{
+		// Notify that the actor is being picked up
+		OnPickUp.Broadcast(Character);
+	}
+}
+
 void UTP_PickUpComponent::BeginPlay()
 {
 	Super::BeginPlay();
@@ -20,7 +29,7 @@ void UTP_PickUpComponent::OnSphereBeginOverlap(UPrimitiveComponent* OverlappedCo
 {
 	// Checking if it is a First Person Character overlapping
 	AFPSCharacter* Character = Cast<AFPSCharacter>(OtherActor);
-	if(Character != nullptr)
+	if (Character != nullptr)
 	{
 		// Notify that the actor is being picked up
 		OnPickUp.Broadcast(Character);
