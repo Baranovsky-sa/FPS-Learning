@@ -7,6 +7,17 @@
 #include "TP_WeaponComponent.generated.h"
 
 class AFPSCharacter;
+class UPhysicsHandleComponent;
+
+UENUM(BlueprintType)
+enum class EFireMode : uint8
+{
+	Projectile UMETA(DisplayName = "Projectile"),
+	HitScan    UMETA(DisplayName = "HitScan/Laser"),
+	GravityGun UMETA(DisplayName = "Gravity Gun"),
+	Burst      UMETA(DisplayName = "Burst Fire"),
+	// etc...
+};
 
 UCLASS(Blueprintable, BlueprintType, ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class FPS_API UTP_WeaponComponent : public USkeletalMeshComponent
@@ -38,6 +49,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
 	class UInputAction* FireAction;
 
+	/** Move Input Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* SwitchFireModeAction;
+
 	/** Sets default values for this component's properties */
 	UTP_WeaponComponent();
 
@@ -49,12 +64,33 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Weapon")
 	void Fire();
 
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	void SwitchFireMode();
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Gameplay)
+	EFireMode FireMode = EFireMode::Projectile;
+
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
 protected:
 	/** Ends gameplay for this component. */
 	UFUNCTION()
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Laser")
+	float FireRange = 300.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Gravity")
+	UPhysicsHandleComponent* PhysicsHandle;
+
+	void FireProjectile();
+	void FireLaser();
+	void FireGravityGun();
+	void FireBurst();
+
 private:
 	/** The Character holding this weapon*/
 	AFPSCharacter* Character;
+
+	AActor* GravityHoldActor = nullptr;
 };

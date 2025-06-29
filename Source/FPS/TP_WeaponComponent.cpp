@@ -12,6 +12,7 @@
 #include "Animation/AnimInstance.h"
 #include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
+#include "PhysicsEngine/PhysicsHandleComponent.h"
 
 static TAutoConsoleVariable<bool> CVarInfiniteAmmo(
 	TEXT("u.InfiniteAmmo"),
@@ -26,6 +27,8 @@ UTP_WeaponComponent::UTP_WeaponComponent()
 {
 	// Default offset from the character location for projectiles to spawn
 	MuzzleOffset = FVector(100.0f, 0.0f, 10.0f);
+
+	PhysicsHandle = CreateDefaultSubobject<UPhysicsHandleComponent>(TEXT("PhysicsHandle"));
 }
 
 
@@ -38,47 +41,29 @@ void UTP_WeaponComponent::Fire()
 		return;
 	}
 
-	// Try and fire a projectile
-	if (ProjectileClass != nullptr)
+	switch (FireMode)
 	{
-		UWorld* const World = GetWorld();
-		if (World != nullptr)
-		{
-			APlayerController* PlayerController = Cast<APlayerController>(Character->GetController());
-			const FRotator SpawnRotation = PlayerController->PlayerCameraManager->GetCameraRotation();
-			// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
-			const FVector SpawnLocation = GetOwner()->GetActorLocation() + SpawnRotation.RotateVector(MuzzleOffset);
-	
-			//Set Spawn Collision Handling Override
-			FActorSpawnParameters ActorSpawnParams;
-			ActorSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
-	
-			// Spawn the projectile at the muzzle
-			World->SpawnActor<AFPSProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, ActorSpawnParams);
-			
-			if(!IsInfiniteCheatOn)
-			{ 
-				--Character->AmmoCount;
-			}
-		}
+	case EFireMode::Projectile:
+		FireProjectile();
+		break;
+	case EFireMode::HitScan:
+		FireLaser();
+		break;
+	case EFireMode::GravityGun:
+		FireGravityGun();
+		break;
+	case EFireMode::Burst:
+		FireBurst();
+		break;
+	default:
+		UE_LOG(LogTemp, Warning, TEXT("FireMode out of enum %d"), FireMode);
+		break;
 	}
-	
-	// Try and play the sound if specified
-	if (FireSound != nullptr)
-	{
-		UGameplayStatics::PlaySoundAtLocation(this, FireSound, Character->GetActorLocation());
-	}
-	
-	// Try and play a firing animation if specified
-	if (FireAnimation != nullptr)
-	{
-		// Get the animation object for the arms mesh
-		UAnimInstance* AnimInstance = Character->GetMesh1P()->GetAnimInstance();
-		if (AnimInstance != nullptr)
-		{
-			AnimInstance->Montage_Play(FireAnimation, 1.f);
-		}
-	}
+}
+
+void UTP_WeaponComponent::SwitchFireMode()
+{
+	FireMode = static_cast<EFireMode>((static_cast<uint8>(FireMode) + 1) % static_cast<uint8>(EFireMode::Burst) + 1);
 }
 
 bool UTP_WeaponComponent::AttachWeapon(AFPSCharacter* TargetCharacter)
@@ -111,10 +96,29 @@ bool UTP_WeaponComponent::AttachWeapon(AFPSCharacter* TargetCharacter)
 		{
 			// Fire
 			EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Triggered, this, &UTP_WeaponComponent::Fire);
+			
+			// FireMode
+			EnhancedInputComponent->BindAction(SwitchFireModeAction, ETriggerEvent::Triggered, this, &UTP_WeaponComponent::SwitchFireMode);
 		}
+
 	}
 
 	return true;
+}
+
+void UTP_WeaponComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	if (GravityHoldActor && PhysicsHandle->GrabbedComponent)
+	{
+		const APlayerController* PlayerController = Cast<APlayerController>(Character->GetController());
+		const FRotator SpawnRotator = PlayerController->PlayerCameraManager->GetCameraRotation();
+		const FVector SpawnLocation = GetOwner()->GetActorLocation() + SpawnRotator.RotateVector(MuzzleOffset);
+		const FVector End = SpawnLocation + PlayerController->PlayerCameraManager->GetActorForwardVector() * 300.f;
+
+		PhysicsHandle->SetTargetLocationAndRotation(End, SpawnRotator);
+	}
 }
 
 void UTP_WeaponComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -131,4 +135,113 @@ void UTP_WeaponComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 			Subsystem->RemoveMappingContext(FireMappingContext);
 		}
 	}
+}
+
+void UTP_WeaponComponent::FireProjectile()
+{
+	const bool IsInfiniteCheatOn = CVarInfiniteAmmo.GetValueOnGameThread();
+
+	// Try and fire a projectile
+	if (ProjectileClass != nullptr)
+	{
+		UWorld* const World = GetWorld();
+		if (World != nullptr)
+		{
+			APlayerController* PlayerController = Cast<APlayerController>(Character->GetController());
+			const FRotator SpawnRotation = PlayerController->PlayerCameraManager->GetCameraRotation();
+			// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
+			const FVector SpawnLocation = GetOwner()->GetActorLocation() + SpawnRotation.RotateVector(MuzzleOffset);
+
+			//Set Spawn Collision Handling Override
+			FActorSpawnParameters ActorSpawnParams;
+			ActorSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
+
+			// Spawn the projectile at the muzzle
+			World->SpawnActor<AFPSProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, ActorSpawnParams);
+
+			if (!IsInfiniteCheatOn)
+			{
+				--Character->AmmoCount;
+			}
+		}
+	}
+
+	// Try and play the sound if specified
+	if (FireSound != nullptr)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, FireSound, Character->GetActorLocation());
+	}
+
+	// Try and play a firing animation if specified
+	if (FireAnimation != nullptr)
+	{
+		// Get the animation object for the arms mesh
+		UAnimInstance* AnimInstance = Character->GetMesh1P()->GetAnimInstance();
+		if (AnimInstance != nullptr)
+		{
+			AnimInstance->Montage_Play(FireAnimation, 1.f);
+		}
+	}
+}
+
+void UTP_WeaponComponent::FireLaser()
+{
+	const FVector MuzzleLaserOffset = FVector(45.0f, 5.0f, 15.0f);
+	const APlayerController* PlayerController = Cast<APlayerController>(Character->GetController());
+	const FRotator PlayerCameraRotation = PlayerController->PlayerCameraManager->GetCameraRotation();
+	const FVector SpawnLocation = GetOwner()->GetActorLocation() + PlayerCameraRotation.RotateVector(MuzzleLaserOffset);
+	const FVector EndLocation = SpawnLocation + PlayerController->PlayerCameraManager->GetActorForwardVector() * FireRange;
+
+	FHitResult Hit;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(GetOwner());
+
+	if (GetWorld()->LineTraceSingleByChannel(Hit, SpawnLocation, EndLocation, ECC_Visibility, Params))
+	{
+		DrawDebugLine(GetWorld(), SpawnLocation, Hit.ImpactPoint, FColor::Red, false, 1.f, 0.f, 1.f);
+		if (AActor* HitActor = Hit.GetActor())
+		{
+			UGameplayStatics::ApplyDamage(HitActor, 25.f, nullptr, GetOwner(), nullptr);
+		}
+	}
+	else
+	{
+		DrawDebugLine(GetWorld(), SpawnLocation, EndLocation, FColor::Blue, false, 1.0f, 0, 1.f);
+	}
+}
+
+void UTP_WeaponComponent::FireGravityGun()
+{
+	const APlayerController* PlayerController = Cast<APlayerController>(Character->GetController());
+	const FRotator SpawnRotator = PlayerController->PlayerCameraManager->GetCameraRotation();
+	const FVector SpawnLocation = GetOwner()->GetActorLocation() + SpawnRotator.RotateVector(MuzzleOffset);
+	const FVector End = SpawnLocation + PlayerController->PlayerCameraManager->GetActorForwardVector() * 500.f;
+
+	if (!GravityHoldActor)
+	{
+		FHitResult Hit;
+		FCollisionQueryParams Params;
+		Params.AddIgnoredActor(GetOwner());
+
+		if (GetWorld()->LineTraceSingleByChannel(Hit, SpawnLocation, End, ECC_PhysicsBody, Params))
+		{
+			UPrimitiveComponent* HitComp = Hit.GetComponent();
+			if (HitComp && HitComp->IsSimulatingPhysics())
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Gravity taken"));
+				GravityHoldActor = Hit.GetActor();
+				PhysicsHandle->GrabComponentAtLocationWithRotation(HitComp, NAME_None, Hit.ImpactPoint, HitComp->GetComponentRotation());
+			}
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Released"));
+		PhysicsHandle->ReleaseComponent();
+		GravityHoldActor = nullptr;
+	}
+}
+
+void UTP_WeaponComponent::FireBurst()
+{
 }
