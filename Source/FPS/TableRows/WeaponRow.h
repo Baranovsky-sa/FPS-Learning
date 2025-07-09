@@ -16,10 +16,10 @@ struct FWeaponRow : public FTableRowBase
     FName WeaponName;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly)
-    float Damage;
+    float Damage = 0;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly)
-    float FireRate;
+    float FireRate = 0;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly)
     TSubclassOf<AActor> WeaponClass; // e.g., AMyRifleActor
@@ -37,5 +37,5 @@ struct FLoadoutRow : public FTableRowBase
     FName SecondaryWeaponRow;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly)
-    int32 StartingAmmo;
+    int32 StartingAmmo = 30;
 };
