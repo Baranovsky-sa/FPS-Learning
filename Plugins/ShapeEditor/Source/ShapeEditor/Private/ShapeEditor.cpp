@@ -61,7 +61,7 @@ void FShapeEditorModule::GenerateCube()
 	PrimitiveOptions.bFlipOrientation = false;
 	PrimitiveOptions.UVMode = EGeometryScriptPrimitiveUVMode::Uniform;
 
-	FTransform BoxTransform = FTransform(FRotator::ZeroRotator, FVector(0, 0, 100), FVector(1));
+	FTransform BoxTransform = FTransform(FRotator::ZeroRotator, FVector(920, 730, 200), FVector(1));
 
 	UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendBox(
 		DynamicMesh,
