@@ -231,7 +231,6 @@ void UTP_WeaponComponent::FireGravityGun()
 				UE_LOG(LogTemp, Warning, TEXT("Gravity taken"));
 				GravityHoldActor = Hit.GetActor();
 				PhysicsHandle->GrabComponentAtLocationWithRotation(HitComp, NAME_None, Hit.ImpactPoint, HitComp->GetComponentRotation());
-				//TODO Attach or Disable gravity
 			}
 		}
 	}
