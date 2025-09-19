@@ -167,7 +167,6 @@ Temporary Items
 # Compiled source files for the engine to use
 /Intermediate
 /Plugins/**/Intermediate
-/Content/AbandonedFactory/
 
 # Cache files for the editor to use
 /DerivedDataCache
